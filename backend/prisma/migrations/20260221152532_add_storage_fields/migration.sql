@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `user` MODIFY `storageLimit` INTEGER NOT NULL DEFAULT 1073741824;
