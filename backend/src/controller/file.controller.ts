@@ -42,7 +42,7 @@ export const generateUploadURL = async (req: Request, res: Response) => {
 
 export const confirmUpload = async (req: any, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = (req as any).userId as string;
     const { fileId, name, key, size, mimeType, parentId } = req.body;
     logger.info("Confirm upload request", {
       userId,
@@ -77,9 +77,90 @@ export const confirmUpload = async (req: any, res: Response) => {
   }
 };
 
+export const startMultipartUpload = async (req: Request, res: Response) => {
+  try {
+    const userId =(req as any).userId as string;
+    const { fileName, mimeType, size, parentId } = req.body;
+
+    logger.info("Start multipart upload", { userId, fileName });
+
+    const result = await fileService.startMultipartUpload({
+      userId,
+      fileName,
+      mimeType,
+      size,
+      parentId
+    });
+
+    sendResponse(res, 201, "Multipart Upload Started", result);
+
+  } catch (error: any) {
+    logger.error("Failed to start multipart upload", {
+      userId: (req as any).userId as string,
+      error: error.message
+    });
+
+    sendResponse(res, 400, error.message);
+  }
+};
+
+export const getMultipartPresignedUrls = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId as string;
+    const { uploadId, key, parts } = req.body;
+
+    logger.info("Generate multipart presigned URLs", {
+      userId,
+      parts: parts.length
+    });
+
+    const urls = await fileService.getMultipartPresignedUrls({
+      uploadId,
+      key,
+      parts
+    });
+
+    sendResponse(res, 200, "URLs Generated", urls);
+
+  } catch (error: any) {
+    logger.error("Failed to generate URLs", {
+      error: error.message
+    });
+
+    sendResponse(res, 400, error.message);
+  }
+};
+
+export const completeMultipartUpload = async (req: Request, res: Response) => {
+  try {
+
+    const { uploadId, key, parts } = req.body;
+
+    logger.info("Completing multipart upload", {
+      uploadId
+    });
+
+    const result = await fileService.completeMultipartUpload({
+      uploadId,
+      key,
+      parts
+    });
+
+    sendResponse(res, 200, "Upload Completed", result);
+
+  } catch (error: any) {
+
+    logger.error("Failed to complete upload", {
+      error: error.message
+    });
+
+    sendResponse(res, 400, error.message);
+  }
+};
+
 export const renameFile = async (req: any, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = (req as any).userId as string;
     const { fileId } = req.params;
     const { newName } = req.body;
 
@@ -109,7 +190,7 @@ export const renameFile = async (req: any, res: Response) => {
 
 export const deleteFile = async (req: any, res: Response) => {
   try {
-    const userId = req.userId;
+    const userId = (req as any).userId as string;
     const { fileId } = req.params;
     logger.info("Delete file request", {
       userId,
@@ -133,3 +214,4 @@ export const deleteFile = async (req: any, res: Response) => {
     sendResponse(res, HttpStatus.BAD_REQUEST, error.message);
   }
 };
+

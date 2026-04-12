@@ -1,0 +1,16 @@
+node_modules
+
+dist
+
+logs
+
+.env
+.env.*
+!.env.example
+
+.git
+.gitignore
+
+.vscode
+*.swap
+.DS_Store

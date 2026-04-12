@@ -48,6 +48,98 @@ export class FileService {
     };
   }
 
+  async startMultipartUpload(params: {
+    userId: string;
+    fileName: string;
+    mimeType: string;
+    size: number;
+    parentId?: string;
+  }) {
+    const { userId, fileName, mimeType, size, parentId } = params;
+
+    logger.info(
+      `Starting multipart upload for user ${userId}, file ${fileName}`,
+    );
+
+    if (parentId) {
+      const parent = await prisma.node.findUnique({ where: { id: parentId } });
+
+      if (
+        !parent ||
+        parent.type !== NodeType.FOLDER ||
+        parent.userId !== userId
+      ) {
+        logger.warn(`Invalid parent folder access by user ${userId}`);
+        throw new Error("Invalid parent folder");
+      }
+    }
+
+    await quotaService.checkLimit(userId, size);
+
+    const fileId = uuid();
+    const key = `users/${userId}/${fileId}-${fileName}`;
+
+    const multipart = await storageService.startMultipartUpload({
+      key,
+      contentType: mimeType,
+    });
+
+    logger.info(`Multipart upload started for ${fileId}`);
+
+    return {
+      uploadId: multipart.uploadId,
+      key,
+      fileId,
+    };
+  }
+
+  async getMultipartPresignedUrls(params: {
+    uploadId: string;
+    key: string;
+    parts: number[];
+  }) {
+    const { uploadId, key, parts } = params;
+
+    logger.info(`Generating presigned URLs for ${parts.length} parts`);
+
+    const urls = await Promise.all(
+      parts.map(async (partNumber) => {
+        const url = await storageService.getPartUploadUrl({
+          key,
+          uploadId,
+          partNumber,
+        });
+
+        return {
+          partNumber,
+          url,
+        };
+      }),
+    );
+
+    return urls;
+  }
+
+  async completeMultipartUpload(params: {
+    uploadId: string;
+    key: string;
+    parts: { ETag: string; PartNumber: number }[];
+  }) {
+    const { uploadId, key, parts } = params;
+
+    logger.info(`Completing multipart upload ${uploadId}`);
+
+    await storageService.completeMultipartUpload({
+      uploadId,
+      key,
+      parts,
+    });
+
+    logger.info(`Multipart upload completed for key ${key}`);
+
+    return true;
+  }
+
   async confirmUpload(data: {
     fileId: string;
     userId: string;
@@ -127,10 +219,7 @@ export class FileService {
       logger.info(`File ${fileId} deleted from S3`);
     }
 
-    await quotaService.decreaseUsed(
-      userId,
-      file.size ? file.size : 0,
-    );
+    await quotaService.decreaseUsed(userId, file.size ? file.size : 0);
 
     const deleted = await prisma.node.delete({
       where: { id: fileId },

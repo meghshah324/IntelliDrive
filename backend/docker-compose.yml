@@ -1,0 +1,73 @@
+
+services:
+
+  # ─── MySQL Database ───────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: backend_mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE_NAME}
+    ports:
+      - "3307:3306"      # expose so you can connect via MySQL Workbench / DBeaver
+    volumes:
+      - mysql_data:/var/lib/mysql   # data survives container restarts
+    networks:
+      - backend_net
+
+  # ─── Redis Cache ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: backend_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"      # expose so you can connect via RedisInsight
+    volumes:
+      - redis_data:/data  # optional: persist Redis data
+    networks:
+      - backend_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── Your Node.js + TypeScript Backend ────────────────────────
+  backend:
+    build:
+      context: .          # build from current directory (where Dockerfile lives)
+      dockerfile: Dockerfile
+    container_name: backend_app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_HOST: redis   # 'redis' = service name above, Docker DNS resolves it
+      REDIS_PORT: 6379
+    env_file:
+      - .env.docker           # loads rest of your vars (JWT, S3, etc.)
+    volumes:
+      - ./src:/app/src               # hot reload: your src changes reflect instantly
+      - ./prisma:/app/prisma         # hot reload: schema changes reflect instantly
+      - /app/node_modules            # protect container's node_modules
+      - ./logs:/app/logs             # persist logs to your host machine
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - backend_net
+
+# ─── Named Volumes ────────────────────────────────────────────
+volumes:
+  mysql_data:    # MySQL data persists even after docker-compose down
+  redis_data:    # Redis data persists
+  
+
+# ─── Network ──────────────────────────────────────────────────
+networks:
+  backend_net:
+    driver: bridge

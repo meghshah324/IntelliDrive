@@ -2,6 +2,9 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  CompleteMultipartUploadCommand,
+  UploadPartCommand,
+  CreateMultipartUploadCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client } from "../../config/s3";
@@ -48,6 +51,60 @@ export class S3StorageService implements StorageService {
     return getSignedUrl(s3Client, command, {
       expiresIn: 320,
     });
+  }
+
+  async startMultipartUpload(options: GenerateUploadOptions) {
+    const { key, contentType } = options;
+
+    const command = new CreateMultipartUploadCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      ContentType: contentType,
+    });
+
+    const response = await s3Client.send(command);
+
+    return {
+      uploadId: response.UploadId,
+    };
+  }
+
+  async getPartUploadUrl(options: {
+    key: string;
+    uploadId: string;
+    partNumber: number;
+  }) {
+    const { key, uploadId, partNumber } = options;
+
+    const command = new UploadPartCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      UploadId: uploadId,
+      PartNumber: partNumber,
+    });
+
+    return getSignedUrl(s3Client, command, {
+      expiresIn: 320,
+    });
+  }
+
+  async completeMultipartUpload(options: {
+    key: string;
+    uploadId: string;
+    parts: { ETag: string; PartNumber: number }[];
+  }) {
+    const { key, uploadId, parts } = options;
+
+    const command = new CompleteMultipartUploadCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      UploadId: uploadId,
+      MultipartUpload: {
+        Parts: parts,
+      },
+    });
+
+    await s3Client.send(command);
   }
 
   async deleteFile(key: string): Promise<void> {
