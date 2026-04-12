@@ -229,6 +229,21 @@ export class FileService {
 
     return deleted;
   }
+
+  async getPreviewSignedURL(fileId: string, userId: string) {
+    logger.info(`Generating preview URL for file ${fileId} by user ${userId}`);
+
+    const file = await prisma.node.findUnique({ where: { id: fileId } });
+
+    if (!file || file.type !== NodeType.FILE) {
+      logger.warn(`Preview URL generation failed. File ${fileId} not found`);
+      throw new Error("File not found");
+    }
+
+    const url = await storageService.getPreviewSignedURL(file.key as string);
+
+    return url;
+  }
 }
 
 export const fileService = new FileService();

@@ -7,6 +7,7 @@ import {
   confirmUpload,
   renameFile,
   deleteFile,
+  getFilePreviewURL
 } from "../controller/file.controller";
 import { authMiddleware } from "../middlewares/auth";
 
@@ -28,5 +29,7 @@ router.post("/confirm-upload", authMiddleware, confirmUpload);
 router.patch("/:fileId/rename", authMiddleware, renameFile);
 
 router.delete("/:fileId", authMiddleware, deleteFile);
+
+router.get("/preview/:fileId", authMiddleware, getFilePreviewURL);
 
 export default router;

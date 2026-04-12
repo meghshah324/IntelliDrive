@@ -13,6 +13,7 @@ import {
   GenerateDownloadOptions,
   GenerateUploadOptions,
 } from "./StorageService";
+
 import { logger } from "../../utils/logger";
 
 export class S3StorageService implements StorageService {
@@ -123,4 +124,17 @@ export class S3StorageService implements StorageService {
       throw new Error("Failed to delete file from S3");
     }
   }
+
+  async getPreviewSignedURL(key : string) : Promise<string> {
+        const command = new GetObjectCommand({
+           Bucket : this.bucketName,
+           Key : key,
+           ResponseContentDisposition : "inline",
+        });
+
+        return await getSignedUrl(s3Client, command, {
+          expiresIn : 60 * 60, // 1 hour
+        });
+  }
+
 }

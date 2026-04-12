@@ -28,4 +28,6 @@ export interface StorageService {
     uploadId: string;
     parts: { ETag: string; PartNumber: number }[];
   }): Promise<void>;
+
+  getPreviewSignedURL(key: string): Promise<string>;
 }
