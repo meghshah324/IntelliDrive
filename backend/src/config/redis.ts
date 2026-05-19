@@ -1,8 +1,10 @@
-import { createClient } from "redis";
+import Redis from "ioredis";
 import { logger } from "../utils/logger";
 
-export const redisClient = createClient({
-    url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
+export const redisClient = new Redis({
+    host: process.env.REDIS_HOST,
+    port: Number(process.env.REDIS_PORT),
+    maxRetriesPerRequest: null,
 });
 
 redisClient.on("error", (err) => {

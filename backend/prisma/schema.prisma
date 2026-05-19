@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -13,48 +7,56 @@ datasource db {
   provider = "mysql"
 }
 
-model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  passwordHash String
+model node {
+  id         String    @id
+  name       String
+  type       node_type
+  key        String?   @unique(map: "Node_key_key")
+  size       Int?
+  mimeType   String?
+  userId     String
+  parentId   String?
+  isTrashed  Boolean   @default(false)
+  trashedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime
+  node       node?     @relation("nodeTonode", fields: [parentId], references: [id], onDelete: Cascade, map: "Node_parentId_fkey")
+  other_node node[]    @relation("nodeTonode")
+  user       user      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Node_userId_fkey")
+  star       star[]
 
-  storageLimit Int     
-  usedStorage  Int      @default(0)
-
-  nodes        Node[]   @relation("UserNodes")
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  @@index([parentId], map: "Node_parentId_idx")
+  @@index([userId], map: "Node_userId_idx")
+  @@index([isTrashed], map: "Node_isTrashed_idx")
 }
 
-model Node {
-  id        String   @id @default(uuid())
-  name      String
-  type      NodeType
-
-  // Only for FILE
-  key       String?  @unique
-  size      Int?
-  mimeType  String?
-
+model star {
+  id        String   @id
   userId    String
-  parentId  String?
-
+  nodeId    String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  node      node     @relation(fields: [nodeId], references: [id], onDelete: Cascade, map: "Star_nodeId_fkey")
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Star_userId_fkey")
 
-  // Relations
-  user      User     @relation("UserNodes", fields: [userId], references: [id], onDelete: Cascade)
-
-  parent    Node?    @relation("NodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
-  children  Node[]   @relation("NodeChildren")
-
-  @@index([userId])
-  @@index([parentId])
+  @@unique([userId, nodeId], map: "Star_userId_nodeId_key")
+  @@index([nodeId], map: "Star_nodeId_idx")
+  @@index([userId], map: "Star_userId_idx")
 }
 
-enum NodeType {
+model user {
+  id           String   @id
+  name         String
+  email        String   @unique(map: "User_email_key")
+  storageLimit Int
+  usedStorage  Int      @default(0)
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+  node         node[]
+  star         star[]
+}
+
+enum node_type {
   FILE
   FOLDER
 }

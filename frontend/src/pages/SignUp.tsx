@@ -1,10 +1,11 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function SignUp() {
   const { register, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +23,7 @@ export default function SignUp() {
 
     try {
       await register(name, email, password);
+      navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unable to create account.";
       setError(message);
@@ -31,8 +33,8 @@ export default function SignUp() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="mx-auto max-w-md px-6 py-16">
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12 text-slate-900">
+      <div className="w-full max-w-md">
         <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
           <h1 className="text-3xl font-semibold text-slate-900">Create account</h1>
           <p className="mt-3 text-sm text-slate-600">Use your email and a password to sign up.</p>

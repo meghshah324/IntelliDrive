@@ -19,4 +19,10 @@ export const s3Client = new S3Client({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
+  // AWS SDK v3 (>=3.729) injects x-amz-sdk-checksum-* headers into presigned
+  // URLs by default. Browsers don't send those headers, so S3 returns 403
+  // SignatureDoesNotMatch (or fails CORS preflight). Disable default checksums
+  // for presigned PUT / UploadPart so the browser request matches the signature.
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED",
 });

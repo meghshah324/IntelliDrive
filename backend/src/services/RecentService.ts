@@ -1,23 +1,23 @@
-import { redisClient } from "../config/redis";
 import { prisma } from "../prisma";
 import { logger } from "../utils/logger";
-
+import { redisClient } from "../config/redis";
 class RecentService {
-  private MAX_RECENT = 20;
+  private MAX_RECENT = 5;
+
+  getKey(userId: string) { 
+    return `recent:files:${userId}`;
+  }
 
   async addRecentFile(userId: string, fileId: string) {
-    const key = `recent:files:${userId}`;
+    const key = this.getKey(userId);
     const timestamp = Date.now();
 
     try {
       logger.info("Adding recent file", { userId, fileId });
 
-      await redisClient.zAdd(key, {
-        score: timestamp,
-        value: fileId,
-      });
+      await redisClient.zadd(key, timestamp, fileId);
 
-      await redisClient.zRemRangeByRank(key, 0, -this.MAX_RECENT - 1);
+      await redisClient.zremrangebyrank(key, 0, -this.MAX_RECENT - 1);
     } catch (error) {
       logger.error("Failed to add recent file", { userId, fileId, error });
       throw error;
@@ -25,14 +25,12 @@ class RecentService {
   }
 
   async getRecentFiles(userId: string) {
-    const key = `recent:files:${userId}`;
+    const key = this.getKey(userId);
 
     try {
       logger.info("Fetching recent files", { userId });
 
-      const fileIds = await redisClient.zRange(key, 0, -1, {
-        REV: true,
-      });
+      const fileIds = await redisClient.zrevrange(key, 0, -1);
 
       if (fileIds.length === 0) {
         logger.info("No recent files found", { userId });
@@ -43,6 +41,7 @@ class RecentService {
         where: {
           id: { in: fileIds },
           userId,
+          isTrashed: false,
         },
       });
 
@@ -56,12 +55,12 @@ class RecentService {
   }
 
   async removeRecentFile(userId: string, fileId: string) {
-    const key = `recent:files:${userId}`;
+    const key = this.getKey(userId);
 
     try {
       logger.info("Removing recent file", { userId, fileId });
 
-      await redisClient.zRem(key, fileId);
+      await redisClient.zrem(key, fileId);
     } catch (error) {
       logger.error("Failed to remove recent file", { userId, fileId, error });
       throw error;

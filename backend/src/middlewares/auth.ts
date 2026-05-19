@@ -1,20 +1,24 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { sendResponse } from "../utils/apiResponse";
-import { HttpStatus } from "../constants/httpStatus";
-import { logger } from "../utils/logger";
+import { sendResponse } from "../utils/apiResponse.js";
+import { HttpStatus } from "../constants/httpStatus.js";
+import { logger } from "../utils/logger.js";
 
 export interface AuthRequest extends Request {
   userId?: string;
 }
+
+const COOKIE_NAME = "token";
 
 export const authMiddleware = (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.split(" ")[1];
+  // Prefer HTTP-only cookie; fall back to Authorization header for tooling.
+  const cookieToken = (req as any).cookies?.[COOKIE_NAME] as string | undefined;
+  const headerToken = req.headers.authorization?.split(" ")[1];
+  const token = cookieToken || headerToken;
 
   if (!token) {
     logger.warn("Token not provided", {
@@ -38,11 +42,6 @@ export const authMiddleware = (
 
     req.userId = decoded.userId;
 
-    logger.info("User authenticated successfully", {
-      userId: decoded.userId,
-      path: req.originalUrl,
-    });
-
     next();
   } catch (err: any) {
     logger.warn("Invalid token", {
@@ -53,3 +52,4 @@ export const authMiddleware = (
     return sendResponse(res, HttpStatus.UNAUTHORIZED, "Invalid Token");
   }
 };
+

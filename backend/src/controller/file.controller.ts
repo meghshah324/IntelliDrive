@@ -158,6 +158,25 @@ export const completeMultipartUpload = async (req: Request, res: Response) => {
   }
 };
 
+export const abortMultipartUpload = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId as string;
+    const { uploadId, key } = req.body;
+
+    logger.info("Abort multipart upload", { userId, uploadId, key });
+
+    await fileService.abortMultipartUpload({ uploadId, key });
+
+    sendResponse(res, 200, "Upload Aborted");
+  } catch (error: any) {
+    logger.warn("Failed to abort multipart upload", {
+      userId: (req as any).userId,
+      error: error.message,
+    });
+    sendResponse(res, 400, error.message);
+  }
+};
+
 export const renameFile = async (req: any, res: Response) => {
   try {
     const userId = (req as any).userId as string;

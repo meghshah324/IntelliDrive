@@ -1,11 +1,33 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { User } from "../models/User.js";
 import { prisma } from "../prisma.js";
 import { logger } from "../utils/logger.js";
 
+type RegisterInput = {
+  name: string;
+  email: string;
+  password: string;
+};
+
+export type SafeUser = {
+  id: string;
+  name: string;
+  email: string;
+  storageLimit: number;
+  usedStorage: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const JWT_EXPIRES_IN = "1d";
+
+const sanitizeUser = (user: any): SafeUser => {
+  const { passwordHash, ...safe } = user;
+  return safe as SafeUser;
+};
+
 export class AuthService {
-  async register(user: User) {
+  async register(user: RegisterInput): Promise<SafeUser> {
     try {
       logger.info("Register attempt", { email: user.email });
 
@@ -33,14 +55,17 @@ export class AuthService {
 
       logger.info("User registered successfully", { userId: newUser.id });
 
-      return newUser;
+      return sanitizeUser(newUser);
     } catch (error) {
       logger.error("Registration error", { error });
       throw error;
     }
   }
 
-  async login(email: string, password: string) {
+  async login(
+    email: string,
+    password: string,
+  ): Promise<{ token: string; user: SafeUser }> {
     try {
       logger.info("Login attempt", { email });
 
@@ -60,16 +85,25 @@ export class AuthService {
         throw new Error("Invalid credentials");
       }
 
-      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, {
-        expiresIn: "1d",
+      if (!process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET is not configured");
+      }
+
+      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
+        expiresIn: JWT_EXPIRES_IN,
       });
 
       logger.info("Login successful", { userId: user.id });
 
-      return { token , user };
+      return { token, user: sanitizeUser(user) };
     } catch (error) {
       logger.error("Login error", { email, error });
       throw error;
     }
+  }
+
+  async getById(userId: string): Promise<SafeUser | null> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    return user ? sanitizeUser(user) : null;
   }
 }

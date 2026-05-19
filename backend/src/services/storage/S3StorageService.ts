@@ -5,6 +5,7 @@ import {
   CompleteMultipartUploadCommand,
   UploadPartCommand,
   CreateMultipartUploadCommand,
+  AbortMultipartUploadCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client } from "../../config/s3";
@@ -13,7 +14,6 @@ import {
   GenerateDownloadOptions,
   GenerateUploadOptions,
 } from "./StorageService";
-
 import { logger } from "../../utils/logger";
 
 export class S3StorageService implements StorageService {
@@ -23,7 +23,6 @@ export class S3StorageService implements StorageService {
     if (!process.env.AWS_BUCKET_NAME) {
       throw new Error("AWS_BUCKET_NAME is missing");
     }
-
     this.bucketName = process.env.AWS_BUCKET_NAME;
   }
 
@@ -36,8 +35,9 @@ export class S3StorageService implements StorageService {
       ContentType: contentType,
     });
 
+    // 1 hour — needs to cover the actual PUT, not just the page lifecycle.
     return getSignedUrl(s3Client, command, {
-      expiresIn: 320,
+      expiresIn: 60 * 60,
     });
   }
 
@@ -50,11 +50,11 @@ export class S3StorageService implements StorageService {
     });
 
     return getSignedUrl(s3Client, command, {
-      expiresIn: 320,
+      expiresIn: 60 * 60,
     });
   }
 
-  async startMultipartUpload(options: GenerateUploadOptions) {
+  async startMultipartUpload(options: GenerateUploadOptions) : Promise<{ uploadId: string }> {
     const { key, contentType } = options;
 
     const command = new CreateMultipartUploadCommand({
@@ -65,8 +65,12 @@ export class S3StorageService implements StorageService {
 
     const response = await s3Client.send(command);
 
+    if (!response.UploadId) {
+      throw new Error("S3 did not return an UploadId");
+    }
+
     return {
-      uploadId: response.UploadId,
+      uploadId: response.UploadId
     };
   }
 
@@ -74,7 +78,7 @@ export class S3StorageService implements StorageService {
     key: string;
     uploadId: string;
     partNumber: number;
-  }) {
+  }) : Promise<string> {
     const { key, uploadId, partNumber } = options;
 
     const command = new UploadPartCommand({
@@ -84,8 +88,10 @@ export class S3StorageService implements StorageService {
       PartNumber: partNumber,
     });
 
+    // 2 hours — a single multipart upload may take a while; all part URLs
+    // are signed once at the start of the upload, so they must outlive it.
     return getSignedUrl(s3Client, command, {
-      expiresIn: 320,
+      expiresIn: 60 * 60 * 2,
     });
   }
 
@@ -93,7 +99,7 @@ export class S3StorageService implements StorageService {
     key: string;
     uploadId: string;
     parts: { ETag: string; PartNumber: number }[];
-  }) {
+  }) : Promise<void> {
     const { key, uploadId, parts } = options;
 
     const command = new CompleteMultipartUploadCommand({
@@ -106,6 +112,23 @@ export class S3StorageService implements StorageService {
     });
 
     await s3Client.send(command);
+  }
+
+  async abortMultipartUpload(options: { key: string; uploadId: string }) : Promise<void> {
+    const { key, uploadId } = options;
+    try {
+      logger.info(`Aborting multipart upload for key: ${key}`);
+      const command = new AbortMultipartUploadCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        UploadId: uploadId,
+      });
+      await s3Client.send(command);
+      logger.info(`Multipart upload aborted for key: ${key}`);
+    } catch (err) {
+      // Non-fatal: log and swallow so the user-facing cancel always succeeds.
+      logger.warn(`Failed to abort multipart upload for ${key}`, err);
+    }
   }
 
   async deleteFile(key: string): Promise<void> {
@@ -136,5 +159,4 @@ export class S3StorageService implements StorageService {
           expiresIn : 60 * 60, // 1 hour
         });
   }
-
 }

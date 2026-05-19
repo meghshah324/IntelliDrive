@@ -1,17 +1,21 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function SignIn() {
   const { login, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const redirectTo = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || "/dashboard";
+
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={redirectTo} replace />;
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -21,6 +25,7 @@ export default function SignIn() {
 
     try {
       await login(email, password);
+      navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unable to sign in. Please check your email and password.";
       setError(message);
@@ -30,8 +35,8 @@ export default function SignIn() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="mx-auto max-w-md px-6 py-16">
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12 text-slate-900">
+      <div className="w-full max-w-md">
         <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
           <h1 className="text-3xl font-semibold text-slate-900">Sign In</h1>
           <p className="mt-3 text-sm text-slate-600">Enter your email and password to sign in.</p>

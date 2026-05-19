@@ -1,5 +1,6 @@
 import { prisma } from "../../prisma";
 import { recentService } from "../RecentService";
+import { starService } from "../StarService";
 import { logger } from "../../utils/logger";
 
 export class NodeService {
@@ -11,16 +12,27 @@ export class NodeService {
         where: {
           userId,
           parentId: parentId ?? null,
+          isTrashed: false,
         },
         orderBy: [{ type: "asc" }, { name: "asc" }],
       });
 
+      const starredIds = await starService.getStarredNodeIds(
+        userId,
+        nodes.map((n) => n.id),
+      );
+
+      const result = nodes.map((n) => ({
+        ...n,
+        isStarred: starredIds.has(n.id),
+      }));
+
       logger.info("Folder contents fetched successfully", {
         userId,
-        count: nodes.length,
+        count: result.length,
       });
 
-      return nodes;
+      return result;
     } catch (error: any) {
       logger.error("Failed to list folder contents", {
         userId,
@@ -39,7 +51,7 @@ export class NodeService {
         where: { id: nodeId },
       });
 
-      if (!node || node.userId !== userId) {
+      if (!node || node.userId !== userId || node.isTrashed) {
         logger.warn("Node not found or unauthorized access", {
           nodeId,
           userId,
@@ -77,6 +89,7 @@ export class NodeService {
       const files = await prisma.node.findMany({
         where: {
           userId,
+          isTrashed: false,
           name: {
             contains: query,
           },
@@ -84,13 +97,23 @@ export class NodeService {
         orderBy: { createdAt: "desc" },
       });
 
+      const starredIds = await starService.getStarredNodeIds(
+        userId,
+        files.map((f) => f.id),
+      );
+
+      const result = files.map((f) => ({
+        ...f,
+        isStarred: starredIds.has(f.id),
+      }));
+
       logger.info("Search completed", {
         userId,
         query,
-        resultCount: files.length,
+        resultCount: result.length,
       });
 
-      return files;
+      return result;
     } catch (error: any) {
       logger.error("Search failed", {
         userId,
@@ -101,34 +124,34 @@ export class NodeService {
     }
   }
 
-  //   async getBreadcrumb(nodeId: string, userId: string) {
-  //     const path: any[] = [];
+    async getBreadcrumb(nodeId: string, userId: string) {
+      const path: any[] = [];
 
-  //     let current = await prisma.node.findFirst({
-  //       where: { id: nodeId, userId },
-  //     });
+      let current = await prisma.node.findFirst({
+        where: { id: nodeId, userId },
+      });
 
-  //     if (!current) throw new Error("Not found");
+      if (!current) throw new Error("Not found");
 
-  //     while (current) {
-  //       path.unshift({
-  //         id: current.id,
-  //         name: current.name,
-  //         type: current.type,
-  //       });
+      while (current) {
+        path.unshift({
+          id: current.id,
+          name: current.name,
+          type: current.type,
+        });
 
-  //       if (!current.parentId) break;
+        if (!current.parentId) break;
 
-  //       current = await prisma.node.findFirst({
-  //         where: {
-  //           id: current.parentId,
-  //           userId,
-  //         },
-  //       });
-  //     }
+        current = await prisma.node.findFirst({
+          where: {
+            id: current.parentId,
+            userId,
+          },
+        });
+      }
 
-  //     return path;
-  //   }
+      return path;
+    }
 }
 
 export const nodeService = new NodeService();

@@ -1,10 +1,11 @@
 import { prisma } from "../../prisma";
-import { NodeType } from "../../../generated/prisma";
-import { storageService } from "../../services/storage/index";
+import { node_type } from "../../../generated/prisma";
 import { logger } from "../../utils/logger";
-import { quotaService } from "../QuotaService";
+import { TRASH_CLEANUP_QUEUE_NAME , trashCleanupQueue} from "../trashCleanup.queue";
+import { TRASH_RETENTION_DAYS } from "../../constants/trashConstant";
 
 export class FolderService {
+  
   async createFolder(userId: string, name: string, parentId?: string) {
     logger.info(`User ${userId} creating folder ${name}`);
 
@@ -12,7 +13,7 @@ export class FolderService {
       const parent = await prisma.node.findUnique({ where: { id: parentId } });
       if (
         !parent ||
-        parent.type !== NodeType.FOLDER ||
+        parent.type !== node_type.FOLDER ||
         parent.userId !== userId
       ) {
         logger.warn(`Invalid parent folder access by user ${userId}`);
@@ -23,7 +24,7 @@ export class FolderService {
     const folder = await prisma.node.create({
       data: {
         name,
-        type: NodeType.FOLDER,
+        type: node_type.FOLDER,
         userId,
         parentId: parentId ?? null,
       },
@@ -39,7 +40,7 @@ export class FolderService {
 
     const folder = await prisma.node.findUnique({ where: { id: folderId } });
 
-    if (!folder || folder.type !== NodeType.FOLDER) {
+    if (!folder || folder.type !== node_type.FOLDER || folder.isTrashed) {
       logger.warn(`Folder ${folderId} not found`);
       throw new Error("Folder not found");
     }
@@ -59,12 +60,13 @@ export class FolderService {
     return updated;
   }
 
+
   async deleteFolder(folderId: string, userId: string) {
-    logger.info(`User ${userId} deleting folder ${folderId}`);
+    logger.info(`User ${userId} trashing folder ${folderId}`);
 
     const folder = await prisma.node.findUnique({ where: { id: folderId } });
 
-    if (!folder || folder.type !== NodeType.FOLDER) {
+    if (!folder || folder.type !== node_type.FOLDER) {
       logger.warn(`Folder ${folderId} not found`);
       throw new Error("Folder not found");
     }
@@ -74,44 +76,51 @@ export class FolderService {
       throw new Error("Unauthorized");
     }
 
-    await this.deleteRecursively(folderId, userId);
+    if (folder.isTrashed) {
+      logger.info(`Folder ${folderId} already in trash`);
+      return folder;
+    }
 
-    const deleted = await prisma.node.delete({
-      where: { id: folderId },
+    const now = new Date();
+    const descendantIds = await this.collectDescendantIds(folderId);
+    const allIds = [folderId, ...descendantIds];
+
+    await prisma.node.updateMany({
+      where: { id: { in: allIds }, userId },
+      data: { isTrashed: true, trashedAt: now },
     });
 
-    logger.info(`Folder ${folderId} deleted successfully`);
+      // add to trash cleanup queue
+   await trashCleanupQueue.add("auto-delete-trash",{
+        nodeId: folderId,
+        userId,
+   },{
+        delay: 60 *1000 * 2,
+        jobId: `trash-folder-${folderId}`,
+        removeOnComplete: true,
+        removeOnFail: false
+   });
 
-    return deleted;
+    logger.info(`Folder ${folderId} (and ${descendantIds.length} descendants) moved to trash`);
+
+    return { ...folder, isTrashed: true, trashedAt: now };
   }
 
-  private async deleteRecursively(parentId: string, userId: string) {
-    const children = await prisma.node.findMany({
-      where: { parentId },
-    });
+  async collectDescendantIds(rootId: string): Promise<string[]> {
+    const result: string[] = [];
+    let frontier: string[] = [rootId];
 
-    for (const child of children) {
-      if (child.type === NodeType.FILE && child.key) {
-        try {
-          await storageService.deleteFile(child.key);
-          logger.info(`Deleted file from S3: ${child.id}`);
-        } catch (err) {
-          logger.error(`Failed deleting S3 file ${child.id}`, err);
-          throw err;
-        }
-      }
-
-      if (child.type == NodeType.FOLDER) {
-        await this.deleteRecursively(child.id, userId);
-      }
-      await quotaService.decreaseUsed(userId, child?.size ? child.size : 0);
-
-      await prisma.node.delete({
-        where: { id: child.id },
+    while (frontier.length) {
+      const children = await prisma.node.findMany({
+        where: { parentId: { in: frontier } },
+        select: { id: true },
       });
-
-      logger.info(`Deleted node ${child.id} from database`);
+      const ids = children.map((c) => c.id);
+      result.push(...ids);
+      frontier = ids;
     }
+
+    return result;
   }
 }
 

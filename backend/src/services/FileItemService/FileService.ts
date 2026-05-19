@@ -1,9 +1,15 @@
 import { v4 as uuid } from "uuid";
 import { storageService } from "../storage";
 import { prisma } from "../../prisma";
-import { NodeType } from "../../../generated/prisma";
+import { node_type } from "../../../generated/prisma";
 import { quotaService } from "../QuotaService";
+import { recentService } from "../RecentService";
 import { logger } from "../../utils/logger";
+import {
+  TRASH_CLEANUP_QUEUE_NAME,
+  trashCleanupQueue,
+} from "../trashCleanup.queue";
+import { TRASH_RETENTION_DAYS } from "../../constants/trashConstant";
 
 export class FileService {
   async generateUploadURL(params: {
@@ -12,7 +18,7 @@ export class FileService {
     mimeType: string;
     size: number;
     parentId?: string;
-  }) {
+  }): Promise<{ uploadUrl: string; key: string; fileId: string }> {
     const { userId, fileName, mimeType, size, parentId } = params;
 
     logger.info(`Generating upload URL for user ${userId}, file ${fileName}`);
@@ -21,7 +27,7 @@ export class FileService {
       const parent = await prisma.node.findUnique({ where: { id: parentId } });
       if (
         !parent ||
-        parent.type !== NodeType.FOLDER ||
+        parent.type !== node_type.FOLDER ||
         parent.userId !== userId
       ) {
         logger.warn(`Invalid parent folder access by user ${userId}`);
@@ -54,7 +60,7 @@ export class FileService {
     mimeType: string;
     size: number;
     parentId?: string;
-  }) {
+  }): Promise<{ uploadId: string; key: string; fileId: string }> {
     const { userId, fileName, mimeType, size, parentId } = params;
 
     logger.info(
@@ -66,7 +72,7 @@ export class FileService {
 
       if (
         !parent ||
-        parent.type !== NodeType.FOLDER ||
+        parent.type !== node_type.FOLDER ||
         parent.userId !== userId
       ) {
         logger.warn(`Invalid parent folder access by user ${userId}`);
@@ -140,6 +146,16 @@ export class FileService {
     return true;
   }
 
+  async abortMultipartUpload(params: { uploadId: string; key: string }) {
+    const { uploadId, key } = params;
+
+    logger.info(`Aborting multipart upload ${uploadId}`);
+
+    await storageService.abortMultipartUpload({ uploadId, key });
+
+    return true;
+  }
+
   async confirmUpload(data: {
     fileId: string;
     userId: string;
@@ -151,19 +167,22 @@ export class FileService {
   }) {
     logger.info(`Confirming upload for file ${data.fileId}`);
 
-    const increaseLimit = quotaService.increaseUsed(data.userId, data.size);
+    const file = await prisma.$transaction(async (tx) => {
+      await quotaService.checkLimit(data.userId, data.size, tx);
+      await quotaService.increaseUsed(data.userId, data.size, tx);
 
-    const file = await prisma.node.create({
-      data: {
-        id: data.fileId,
-        name: data.name,
-        type: NodeType.FILE,
-        key: data.key,
-        size: data.size,
-        mimeType: data.mimeType,
-        userId: data.userId,
-        parentId: data.parentId ?? null,
-      },
+      return tx.node.create({
+        data: {
+          id: data.fileId,
+          name: data.name,
+          type: node_type.FILE,
+          key: data.key,
+          size: data.size,
+          mimeType: data.mimeType,
+          userId: data.userId,
+          parentId: data.parentId ?? null,
+        },
+      });
     });
 
     logger.info(`File ${data.fileId} stored in database`);
@@ -178,14 +197,13 @@ export class FileService {
       where: { id: fileId },
     });
 
-    if (!file || file.type !== NodeType.FILE) {
+    if (!file || file.type !== node_type.FILE || file.isTrashed) {
       logger.warn(`Rename failed. File ${fileId} not found`);
       throw new Error("File not found");
     }
 
     if (file.userId !== userId) {
       logger.warn(`Unauthorized rename attempt by user ${userId}`);
-
       throw new Error("Unauthorized");
     }
 
@@ -200,34 +218,69 @@ export class FileService {
   }
 
   async deleteFile(fileId: string, userId: string) {
-    logger.info(`User ${userId} deleting file ${fileId}`);
+    logger.info(`User ${userId} trashing file ${fileId}`);
 
     const file = await prisma.node.findUnique({ where: { id: fileId } });
 
-    if (!file) {
-      logger.warn(`Delete failed. File ${fileId} not found`);
+    if (!file || file.type !== node_type.FILE) {
+      logger.warn(`Trash failed. File ${fileId} not found`);
       throw new Error("File not found");
     }
 
     if (file.userId !== userId) {
-      logger.warn(`Unauthorized delete attempt by user ${userId}`);
+      logger.warn(`Unauthorized trash attempt by user ${userId}`);
       throw new Error("Unauthorized");
     }
 
-    if (file.key) {
-      await storageService.deleteFile(file.key);
-      logger.info(`File ${fileId} deleted from S3`);
+    if (file.isTrashed) {
+      logger.info(`File ${fileId} already in trash`);
+      return file;
     }
 
-    await quotaService.decreaseUsed(userId, file.size ? file.size : 0);
-
-    const deleted = await prisma.node.delete({
+    const updated = await prisma.node.update({
       where: { id: fileId },
+      data: { isTrashed: true, trashedAt: new Date() },
     });
 
-    logger.info(`File ${fileId} removed from database`);
+    // Remove from the recents zset so trashed files don't show in Recents.
+    try {
+      await recentService.removeRecentFile(userId, fileId);
+    } catch (err: any) {
+      logger.warn("Failed to remove trashed file from recents", {
+        userId,
+        fileId,
+        error: err?.message,
+      });
+    }
 
-    return deleted;
+    // add to trash cleanup queue
+    try {
+      await trashCleanupQueue.add(
+        "auto-delete-trash",
+        {
+          nodeId: fileId,
+          userId,
+        },
+        {
+          //TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000
+           delay: 60 *1000 * 2, // 2 minutes for testing, replace with above line for production
+          jobId: `trash-file-${fileId}`,
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
+      
+    } catch (err: any) {
+      logger.error("Failed to enqueue trash cleanup job", {
+        userId,
+        fileId,
+        error: err?.message,
+      });
+    }
+
+    logger.info(`File ${fileId} moved to trash`);
+
+    return updated;
   }
 
   async getPreviewSignedURL(fileId: string, userId: string) {
@@ -235,12 +288,29 @@ export class FileService {
 
     const file = await prisma.node.findUnique({ where: { id: fileId } });
 
-    if (!file || file.type !== NodeType.FILE) {
+    if (!file || file.type !== node_type.FILE || file.isTrashed) {
       logger.warn(`Preview URL generation failed. File ${fileId} not found`);
       throw new Error("File not found");
     }
 
+    if (file.userId !== userId) {
+      logger.warn(`Unauthorized preview attempt by user ${userId}`);
+      throw new Error("Unauthorized");
+    }
+
     const url = await storageService.getPreviewSignedURL(file.key as string);
+
+    // Record this file in the user's recent set. Failure here must not break
+    // preview/download, so the recent service swallows its own errors.
+    try {
+      await recentService.addRecentFile(userId, fileId);
+    } catch (err: any) {
+      logger.warn("Failed to record recent file", {
+        userId,
+        fileId,
+        error: err?.message,
+      });
+    }
 
     return url;
   }

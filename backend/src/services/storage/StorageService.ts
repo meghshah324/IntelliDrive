@@ -8,14 +8,13 @@ export interface GenerateDownloadOptions {
 }
 
 export interface StorageService {
-  generateUploadURL(options: GenerateUploadOptions): Promise<String>;
+  generateUploadURL(options: GenerateUploadOptions): Promise<string>;
   generateDownloadURL(options: GenerateDownloadOptions): Promise<string>;
   deleteFile(key: string): Promise<void>;
 
-
   startMultipartUpload(
     options: GenerateUploadOptions,
-  ): Promise<{ uploadId: string | undefined }>;
+  ): Promise<{ uploadId: string }>;
 
   getPartUploadUrl(options: {
     key: string;
@@ -27,6 +26,11 @@ export interface StorageService {
     key: string;
     uploadId: string;
     parts: { ETag: string; PartNumber: number }[];
+  }): Promise<void>;
+
+  abortMultipartUpload(options: {
+    key: string;
+    uploadId: string;
   }): Promise<void>;
 
   getPreviewSignedURL(key: string): Promise<string>;

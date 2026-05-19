@@ -1,13 +1,19 @@
 import { prisma } from "../prisma";
+import { Prisma } from "../../generated/prisma";
 import { logger } from "../utils/logger";
+
+// Accepts either the global PrismaClient or a transaction client from
+// `prisma.$transaction(async (tx) => ...)`. Pass `tx` to participate in an
+// outer transaction; omit it to run as a standalone query.
+type PrismaTx = Prisma.TransactionClient | typeof prisma;
 
 export class QuotaService {
 
-  async checkLimit(userId: string, fileSize: number) {
+  async checkLimit(userId: string, fileSize: number, client: PrismaTx = prisma) {
     try {
       logger.info("Checking storage quota", { userId, fileSize });
 
-      const user = await prisma.user.findUnique({
+      const user = await client.user.findUnique({
         where: { id: userId },
       });
 
@@ -34,11 +40,11 @@ export class QuotaService {
     }
   }
 
-  async increaseUsed(userId: string, fileSize: number) {
+  async increaseUsed(userId: string, fileSize: number, client: PrismaTx = prisma) {
     try {
       logger.info("Increasing used storage", { userId, fileSize });
 
-      return await prisma.user.update({
+      return await client.user.update({
         where: { id: userId },
         data: {
           usedStorage: { increment: fileSize },
@@ -51,11 +57,11 @@ export class QuotaService {
     }
   }
 
-  async decreaseUsed(userId: string, fileSize: number) {
+  async decreaseUsed(userId: string, fileSize: number, client: PrismaTx = prisma) {
     try {
       logger.info("Decreasing used storage", { userId, fileSize });
 
-      return await prisma.user.update({
+      return await client.user.update({
         where: { id: userId },
         data: {
           usedStorage: { decrement: fileSize },
