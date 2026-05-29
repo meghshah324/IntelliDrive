@@ -34,4 +34,6 @@ export interface StorageService {
   }): Promise<void>;
 
   getPreviewSignedURL(key: string): Promise<string>;
+
+  getDownloadSignedURL(key: string, filename: string): Promise<string>;
 }

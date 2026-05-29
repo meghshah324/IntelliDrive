@@ -18,13 +18,13 @@ const PILLARS = [
     icon: Lock,
     title: "Encrypted data handling",
     description:
-      "Data in transit is encrypted with industry-standard TLS end-to-end.",
+      "Your data is encrypted while it travels, so it stays private from start to finish.",
   },
   {
     icon: Server,
     title: "Reliable infrastructure",
     description:
-      "Powered by AWS S3 — durable, redundant, and ready to scale with you.",
+      "Built on durable, redundant cloud storage that's always available and ready to scale with you.",
   },
 ];
 
@@ -59,7 +59,7 @@ export default function Security() {
               </p>
 
               <div className="mt-6 grid grid-cols-3 gap-3 text-center">
-                {["TLS 1.3", "AWS S3", "Hashed Auth"].map((b) => (
+                {["Encrypted", "Private", "Secure Sign-in"].map((b) => (
                   <span
                     key={b}
                     className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-[11px] font-semibold tracking-wide text-slate-700"

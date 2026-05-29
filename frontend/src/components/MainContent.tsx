@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useFolder } from "../context/FolderContext";
-import { useUploads } from "../context/UploadContext";
+import { useUploads } from "../context/upload";
 import Breadcrumbs from "./folder/Breadcrumbs";
 import FolderTable from "./folder/FolderTable";
 import EmptyState from "./folder/EmptyState";
@@ -35,6 +35,10 @@ export default function MainContent() {
   const [deleteFileTarget, setDeleteFileTarget] = useState<FileNode | null>(null);
 
   const openFolder = (f: FolderNode) => navigateTo({ id: f.id, name: f.name });
+
+  useEffect(() => {
+    void refresh();
+  }, []);
 
   // Refresh listing whenever a queued upload finishes.
   useEffect(() => onCompleted(() => refresh()), [onCompleted, refresh]);

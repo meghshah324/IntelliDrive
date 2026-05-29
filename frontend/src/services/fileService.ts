@@ -160,4 +160,17 @@ export const fileService = {
       throw toError(err, "Failed to get preview URL");
     }
   },
+
+  async getDownloadUrl(fileId: string): Promise<string> {
+    try {
+      const res = await api.get<ApiEnvelope<{ url: string }>>(
+        `/files/download/${fileId}`,
+      );
+      const url = res.data.data?.url;
+      if (!url) throw new Error("No download URL returned");
+      return url;
+    } catch (err) {
+      throw toError(err, "Failed to get download URL");
+    }
+  },
 };

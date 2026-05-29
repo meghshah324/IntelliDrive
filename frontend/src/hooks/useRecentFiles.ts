@@ -93,7 +93,7 @@ export function useRecentFiles(): UseRecentFiles {
   }, [refresh]);
 
   const download = useCallback(async (file: FileNode) => {
-    const url = await fileService.getPreviewUrl(file.id);
+    const url = await fileService.getDownloadUrl(file.id);
     const a = document.createElement("a");
     a.href = url;
     a.download = file.name;

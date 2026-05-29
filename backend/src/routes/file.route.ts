@@ -9,6 +9,7 @@ import {
   renameFile,
   deleteFile,
   getFilePreviewURL,
+  getFileDownloadURL,
 } from "../controller/file.controller";
 import { authMiddleware } from "../middlewares/auth";
 
@@ -30,5 +31,6 @@ router.post("/confirm-upload", authMiddleware, confirmUpload);
 router.patch("/:fileId/rename", authMiddleware, renameFile);
 router.delete("/:fileId", authMiddleware, deleteFile);
 router.get("/preview/:fileId", authMiddleware, getFilePreviewURL);
+router.get("/download/:fileId", authMiddleware, getFileDownloadURL);
 
 export default router;

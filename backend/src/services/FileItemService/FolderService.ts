@@ -95,7 +95,7 @@ export class FolderService {
         nodeId: folderId,
         userId,
    },{
-        delay: 60 *1000 * 2,
+        delay: TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000,
         jobId: `trash-folder-${folderId}`,
         removeOnComplete: true,
         removeOnFail: false

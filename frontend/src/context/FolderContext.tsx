@@ -57,9 +57,17 @@ interface ProviderProps {
   onNavigate?: (folderId: string | null) => void;
 }
 
-export function FolderProvider({ children, folderId = null, onNavigate }: ProviderProps) {
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(folderId);
-  const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([ROOT_CRUMB]);
+export function FolderProvider({
+  children,
+  folderId = null,
+  onNavigate,
+}: ProviderProps) {
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(
+    folderId,
+  );
+  const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([
+    ROOT_CRUMB,
+  ]);
   const [items, setItems] = useState<DriveNode[]>([]);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +126,10 @@ export function FolderProvider({ children, folderId = null, onNavigate }: Provid
     });
   }, [onNavigate]);
 
-  const refresh = useCallback(() => load(currentFolderId), [load, currentFolderId]);
+  const refresh = useCallback(
+    () => load(currentFolderId),
+    [load, currentFolderId],
+  );
 
   const createFolder = useCallback(
     async (name: string) => {
@@ -130,31 +141,37 @@ export function FolderProvider({ children, folderId = null, onNavigate }: Provid
     [currentFolderId],
   );
 
-  const renameFolder = useCallback(async (folderId: string, newName: string) => {
-    // Optimistic update with rollback on failure.
-    setItems((prev) =>
-      prev.map((n) => (n.id === folderId ? { ...n, name: newName } : n)),
-    );
-    try {
-      await folderService.rename(folderId, newName);
-      // Sync with server in case other fields changed (updatedAt, etc.).
-      await refresh();
-    } catch (err) {
-      await refresh();
-      throw err;
-    }
-  }, [refresh]);
+  const renameFolder = useCallback(
+    async (folderId: string, newName: string) => {
+      // Optimistic update with rollback on failure.
+      setItems((prev) =>
+        prev.map((n) => (n.id === folderId ? { ...n, name: newName } : n)),
+      );
+      try {
+        await folderService.rename(folderId, newName);
+        // Sync with server in case other fields changed (updatedAt, etc.).
+        await refresh();
+      } catch (err) {
+        await refresh();
+        throw err;
+      }
+    },
+    [refresh],
+  );
 
-  const deleteFolder = useCallback(async (folderId: string) => {
-    const snapshot = items;
-    setItems((prev) => prev.filter((n) => n.id !== folderId));
-    try {
-      await folderService.remove(folderId);
-    } catch (err) {
-      setItems(snapshot);
-      throw err;
-    }
-  }, [items]);
+  const deleteFolder = useCallback(
+    async (folderId: string) => {
+      const snapshot = items;
+      setItems((prev) => prev.filter((n) => n.id !== folderId));
+      try {
+        await folderService.remove(folderId);
+      } catch (err) {
+        setItems(snapshot);
+        throw err;
+      }
+    },
+    [items],
+  );
 
   // ---------- File actions ----------
   const renameFile = useCallback(
@@ -193,9 +210,7 @@ export function FolderProvider({ children, folderId = null, onNavigate }: Provid
   );
 
   const downloadFile = useCallback(async (file: FileNode) => {
-    const url = await fileService.getPreviewUrl(file.id);
-    // Trigger a download via a temporary anchor — works cross-origin because
-    // the presigned URL is short-lived and the browser handles the GET.
+    const url = await fileService.getDownloadUrl(file.id);
     const a = document.createElement("a");
     a.href = url;
     a.download = file.name;
@@ -220,20 +235,19 @@ export function FolderProvider({ children, folderId = null, onNavigate }: Provid
     } catch (err) {
       // Roll back on failure.
       setItems((prev) =>
-        prev.map((n) =>
-          n.id === node.id ? { ...n, isStarred: !next } : n,
-        ),
+        prev.map((n) => (n.id === node.id ? { ...n, isStarred: !next } : n)),
       );
       throw err;
     }
   }, []);
 
   const folders = useMemo(
-    () => items.filter((n): n is FolderNode => n.type === "FOLDER"),
+    () => items.filter((item) => item.type === "FOLDER") as FolderNode[],
     [items],
   );
+
   const files = useMemo(
-    () => items.filter((n): n is FileNode => n.type === "FILE"),
+    () => items.filter((item) => item.type === "FILE") as FileNode[],
     [items],
   );
 
@@ -280,7 +294,9 @@ export function FolderProvider({ children, folderId = null, onNavigate }: Provid
     ],
   );
 
-  return <FolderContext.Provider value={value}>{children}</FolderContext.Provider>;
+  return (
+    <FolderContext.Provider value={value}>{children}</FolderContext.Provider>
+  );
 }
 
 export function useFolder() {

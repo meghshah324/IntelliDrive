@@ -10,8 +10,8 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useUploads } from "../../context/UploadContext";
-import type { UploadItem, UploadStatus } from "../../context/UploadContext";
+import { useUploads } from "../../context/upload";
+import type { UploadItem, UploadStatus } from "../../context/upload";
 
 const fmtBytes = (n: number) => {
   if (!n) return "0 B";

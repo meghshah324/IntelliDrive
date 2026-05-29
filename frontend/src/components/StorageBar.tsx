@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { useUploads } from "../context/UploadContext";
+import { useUploads } from "../context/upload";
 
 type StorageBarProps = {
   /** Override the bytes used (otherwise read from the authenticated user). */

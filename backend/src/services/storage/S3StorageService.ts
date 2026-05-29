@@ -35,7 +35,6 @@ export class S3StorageService implements StorageService {
       ContentType: contentType,
     });
 
-    // 1 hour — needs to cover the actual PUT, not just the page lifecycle.
     return getSignedUrl(s3Client, command, {
       expiresIn: 60 * 60,
     });
@@ -88,8 +87,6 @@ export class S3StorageService implements StorageService {
       PartNumber: partNumber,
     });
 
-    // 2 hours — a single multipart upload may take a while; all part URLs
-    // are signed once at the start of the upload, so they must outlive it.
     return getSignedUrl(s3Client, command, {
       expiresIn: 60 * 60 * 2,
     });
@@ -126,7 +123,6 @@ export class S3StorageService implements StorageService {
       await s3Client.send(command);
       logger.info(`Multipart upload aborted for key: ${key}`);
     } catch (err) {
-      // Non-fatal: log and swallow so the user-facing cancel always succeeds.
       logger.warn(`Failed to abort multipart upload for ${key}`, err);
     }
   }
@@ -158,5 +154,18 @@ export class S3StorageService implements StorageService {
         return await getSignedUrl(s3Client, command, {
           expiresIn : 60 * 60, // 1 hour
         });
+  }
+
+  async getDownloadSignedURL(key: string, filename: string): Promise<string> {
+    const safeName = filename.replace(/"/g, "");
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      ResponseContentDisposition: `attachment; filename="${safeName}"`,
+    });
+
+    return await getSignedUrl(s3Client, command, {
+      expiresIn: 60 * 60, 
+    });
   }
 }

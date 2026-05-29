@@ -16,7 +16,7 @@ export const fmtDate = (iso: string) =>
     year: "numeric",
     month: "short",
     day: "numeric",
-  });
+});
 
 export const fmtBytes = (n: number | null | undefined) => {
   if (!n) return "—";

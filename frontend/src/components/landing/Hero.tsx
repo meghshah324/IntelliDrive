@@ -33,7 +33,7 @@ export default function Hero() {
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm backdrop-blur">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Now in early access · Built on AWS S3
+            Now in early access
           </span>
           <h1 className="mt-6 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
             Store, Organize, and Access{" "}

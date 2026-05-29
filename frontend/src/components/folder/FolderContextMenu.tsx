@@ -1,5 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState } from "react";
 import {
   Download,
   Eye,
@@ -18,13 +17,7 @@ interface Props {
   isStarred?: boolean;
 }
 
-const MENU_WIDTH = 192; // matches w-48
-const MENU_OFFSET = 6;
-
-/**
- * Per-folder kebab menu rendered into a portal so it escapes any `overflow:hidden`
- * / `overflow:auto` ancestor and never gets clipped by the scroll container.
- */
+/** Per-folder kebab (three-dot) menu with actions like rename, delete, etc. */
 export default function FolderContextMenu({
   onRename,
   onDelete,
@@ -34,149 +27,34 @@ export default function FolderContextMenu({
   isStarred,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
-  // Compute position relative to the viewport (the menu uses position: fixed).
-  const positionMenu = () => {
-    const btn = triggerRef.current;
-    if (!btn) return;
-    const rect = btn.getBoundingClientRect();
-    const viewportH = window.innerHeight;
-    const viewportW = window.innerWidth;
-
-    // Estimate menu height (5 items + divider). Real height is measured after mount.
-    const estimatedH = menuRef.current?.offsetHeight ?? 280;
-
-    // Default: open below-right of the button.
-    let top = rect.bottom + MENU_OFFSET;
-    if (top + estimatedH > viewportH - 8) {
-      // Not enough space below — open above.
-      top = Math.max(8, rect.top - MENU_OFFSET - estimatedH);
-    }
-
-    // Right-align under the trigger.
-    let left = rect.right - MENU_WIDTH;
-    if (left < 8) left = 8;
-    if (left + MENU_WIDTH > viewportW - 8) left = viewportW - MENU_WIDTH - 8;
-
-    setCoords({ top, left });
-  };
-
-  useLayoutEffect(() => {
-    if (open) positionMenu();
-  }, [open]);
-
-  // Re-measure after the menu mounts (so we know its real height).
-  useLayoutEffect(() => {
-    if (open && menuRef.current) positionMenu();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
+  // Close menu on outside click or Escape key
   useEffect(() => {
     if (!open) return;
-    const onPointer = (e: MouseEvent) => {
-      const target = e.target as Node | null;
-      if (!target) return;
-      if (
-        triggerRef.current?.contains(target) ||
-        menuRef.current?.contains(target)
-      ) {
-        return;
-      }
-      setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    const onScrollOrResize = () => positionMenu();
 
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
+    const handleClick = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
     return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
     };
   }, [open]);
 
   const close = () => setOpen(false);
 
-  const menu =
-    open && coords
-      ? createPortal(
-          <div
-            ref={menuRef}
-            role="menu"
-            style={{ top: coords.top, left: coords.left, width: MENU_WIDTH }}
-            className="fixed z-50 rounded-xl bg-white p-1 shadow-lg ring-1 ring-slate-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MenuItem
-              icon={<Eye className="h-4 w-4" />}
-              label="Preview"
-              disabled={!onPreview}
-              onClick={() => {
-                onPreview?.();
-                close();
-              }}
-            />
-            <MenuItem
-              icon={<Download className="h-4 w-4" />}
-              label="Download"
-              disabled={!onDownload}
-              onClick={() => {
-                onDownload?.();
-                close();
-              }}
-            />
-            <MenuItem
-              icon={<Pencil className="h-4 w-4" />}
-              label="Rename"
-              onClick={() => {
-                onRename();
-                close();
-              }}
-            />
-            <MenuItem
-              icon={
-                <Star
-                  className={[
-                    "h-4 w-4",
-                    isStarred ? "fill-amber-400 text-amber-500" : "",
-                  ].join(" ")}
-                />
-              }
-              label={isStarred ? "Remove from Starred" : "Add to Starred"}
-              disabled={!onToggleStar}
-              onClick={() => {
-                onToggleStar?.();
-                close();
-              }}
-            />
-
-            <div className="my-1 h-px bg-slate-100" />
-
-            <MenuItem
-              icon={<Trash2 className="h-4 w-4" />}
-              label="Delete"
-              danger
-              onClick={() => {
-                onDelete();
-                close();
-              }}
-            />
-          </div>,
-          document.body,
-        )
-      : null;
-
   return (
-    <>
+    // Relative container so the absolute menu positions relative to this
+    <div ref={wrapRef} className="relative">
+      {/* Trigger button (three-dot icon) */}
       <button
-        ref={triggerRef}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
@@ -189,10 +67,57 @@ export default function FolderContextMenu({
       >
         <MoreVertical className="h-4 w-4" />
       </button>
-      {menu}
-    </>
+
+      {/* Dropdown menu — absolutely positioned below the trigger */}
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-50 mt-1 w-48 rounded-xl bg-white p-1 shadow-lg ring-1 ring-slate-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MenuItem
+            icon={<Eye className="h-4 w-4" />}
+            label="Preview"
+            disabled={!onPreview}
+            onClick={() => { onPreview?.(); close(); }}
+          />
+          <MenuItem
+            icon={<Download className="h-4 w-4" />}
+            label="Download"
+            disabled={!onDownload}
+            onClick={() => { onDownload?.(); close(); }}
+          />
+          <MenuItem
+            icon={<Pencil className="h-4 w-4" />}
+            label="Rename"
+            onClick={() => { onRename(); close(); }}
+          />
+          <MenuItem
+            icon={
+              <Star
+                className={`h-4 w-4 ${isStarred ? "fill-amber-400 text-amber-500" : ""}`}
+              />
+            }
+            label={isStarred ? "Remove from Starred" : "Add to Starred"}
+            disabled={!onToggleStar}
+            onClick={() => { onToggleStar?.(); close(); }}
+          />
+
+          <div className="my-1 h-px bg-slate-100" />
+
+          <MenuItem
+            icon={<Trash2 className="h-4 w-4" />}
+            label="Delete"
+            danger
+            onClick={() => { onDelete(); close(); }}
+          />
+        </div>
+      )}
+    </div>
   );
 }
+
+// --- Helper component for each menu item ---
 
 interface MenuItemProps {
   icon: React.ReactNode;

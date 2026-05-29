@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import { ChevronDown, FolderPlus, FolderUp, Plus, Upload } from "lucide-react";
 import DropdownItem from "./ui/DropdownItem";
-import UploadTrigger from "./ui/UploadTrigger";
-import type { UploadTriggerHandle } from "./ui/UploadTrigger";
 import { useFolder } from "../context/FolderContext";
-import { useUploads } from "../context/UploadContext";
+import { useUploads } from "../context/upload";
 
 interface CreateDropdownProps {
   /** Open the existing "New folder" modal. */
@@ -17,8 +16,8 @@ export default function CreateDropdown({ onCreateFolder }: CreateDropdownProps) 
   const [open, setOpen] = useState(false);
 
   const wrapRef = useRef<HTMLDivElement>(null);
-  const fileTriggerRef = useRef<UploadTriggerHandle>(null);
-  const folderTriggerRef = useRef<UploadTriggerHandle>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Close on outside click + Escape
   useEffect(() => {
@@ -44,16 +43,20 @@ export default function CreateDropdown({ onCreateFolder }: CreateDropdownProps) 
 
   const handlePickFile = () => {
     setOpen(false);
-    fileTriggerRef.current?.open();
+    fileInputRef.current?.click();
   };
 
   const handlePickFolder = () => {
     setOpen(false);
-    folderTriggerRef.current?.open();
+    folderInputRef.current?.click();
   };
 
-  const handleFiles = (files: File[]) => {
-    enqueue(files, currentFolderId);
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    enqueue(Array.from(files), currentFolderId);
+    // Reset so selecting the same file again still fires onChange
+    e.target.value = "";
   };
 
   return (
@@ -100,13 +103,21 @@ export default function CreateDropdown({ onCreateFolder }: CreateDropdownProps) 
         </div>
       )}
 
-      {/* Hidden inputs — kept mounted so refs are stable */}
-      <UploadTrigger ref={fileTriggerRef} onFiles={handleFiles} multiple />
-      <UploadTrigger
-        ref={folderTriggerRef}
-        onFiles={handleFiles}
-        directory
+      {/* Hidden file inputs — kept mounted so refs are stable */}
+      <input
+        ref={fileInputRef}
+        type="file"
         multiple
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      <input
+        ref={folderInputRef}
+        type="file"
+        multiple
+        onChange={handleFileChange}
+        className="hidden"
+        {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
       />
     </div>
   );

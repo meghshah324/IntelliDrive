@@ -3,9 +3,11 @@ import {
   UploadCloud,
   FolderTree,
   Cloud,
-  Zap,
-  LayoutDashboard,
-  Lock,
+  Star,
+  Trash2,
+  Clock,
+  Search,
+  Gauge,
   type LucideIcon,
 } from "lucide-react";
 import SectionHeading from "./SectionHeading";
@@ -22,49 +24,63 @@ const FEATURES: Feature[] = [
     icon: ShieldCheck,
     title: "Secure Authentication",
     description:
-      "Sign up and sign in with hardened credential flows that keep your account safe.",
+      "Sign up and sign in with hardened credential flows and token-based sessions that keep your account safe.",
     iconClass: "from-indigo-500 to-blue-500",
   },
   {
     icon: UploadCloud,
-    title: "File Upload & Download",
+    title: "Easy File Uploads",
     description:
-      "Move files in and out of the cloud effortlessly, with reliable transfers every time.",
+      "Upload files of any size in one click, and pause or cancel large uploads whenever you need to.",
     iconClass: "from-sky-500 to-cyan-500",
   },
   {
     icon: FolderTree,
-    title: "Folder Organization",
+    title: "Nested Folder Organization",
     description:
-      "Create nested folders and structure your workspace exactly how you think.",
+      "Build deep folder hierarchies with breadcrumb navigation and structure your workspace exactly how you think.",
     iconClass: "from-amber-500 to-orange-500",
   },
   {
     icon: Cloud,
-    title: "AWS S3 Cloud Storage",
+    title: "Reliable Cloud Storage",
     description:
-      "Built on industry-leading S3 infrastructure for durability and scale.",
+      "Your files are safely stored in the cloud and available whenever and wherever you need them.",
     iconClass: "from-emerald-500 to-teal-500",
   },
   {
-    icon: Zap,
-    title: "Fast File Access",
+    icon: Star,
+    title: "Starred Favorites",
     description:
-      "Snappy navigation, quick previews, and instant access to your recent files.",
+      "Mark important files and folders as favorites and jump straight to them from a dedicated starred view.",
     iconClass: "from-yellow-500 to-amber-500",
   },
   {
-    icon: LayoutDashboard,
-    title: "Responsive Dashboard",
+    icon: Trash2,
+    title: "Trash & Restore",
     description:
-      "A thoughtfully designed dashboard that works beautifully on every screen.",
+      "Deleted items move to trash so you can recover them — and auto-cleanup permanently removes them after 30 days.",
+    iconClass: "from-rose-500 to-red-500",
+  },
+  {
+    icon: Clock,
+    title: "Recent Files",
+    description:
+      "Pick up right where you left off with quick access to the files you opened most recently.",
+    iconClass: "from-violet-500 to-purple-500",
+  },
+  {
+    icon: Search,
+    title: "Instant Search",
+    description:
+      "Find any file or folder in seconds with fast full-text search across your entire drive.",
     iconClass: "from-fuchsia-500 to-pink-500",
   },
   {
-    icon: Lock,
-    title: "Secure Data Handling",
+    icon: Gauge,
+    title: "Storage Quota",
     description:
-      "Protected access patterns and trusted storage practices keep your data private.",
+      "Track usage against your storage limit with a live usage bar and enforced quotas on every upload.",
     iconClass: "from-slate-700 to-slate-900",
   },
 ];

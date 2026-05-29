@@ -262,14 +262,12 @@ export class FileService {
           userId,
         },
         {
-          //TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000
-           delay: 60 *1000 * 2, // 2 minutes for testing, replace with above line for production
+          delay: TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000,
           jobId: `trash-file-${fileId}`,
           removeOnComplete: true,
           removeOnFail: false,
         },
       );
-      
     } catch (err: any) {
       logger.error("Failed to enqueue trash cleanup job", {
         userId,
@@ -302,6 +300,41 @@ export class FileService {
 
     // Record this file in the user's recent set. Failure here must not break
     // preview/download, so the recent service swallows its own errors.
+    try {
+      await recentService.addRecentFile(userId, fileId);
+    } catch (err: any) {
+      logger.warn("Failed to record recent file", {
+        userId,
+        fileId,
+        error: err?.message,
+      });
+    }
+
+    return url;
+  }
+
+  async getDownloadSignedURL(fileId: string, userId: string) {
+    logger.info(`Generating download URL for file ${fileId} by user ${userId}`);
+
+    const file = await prisma.node.findUnique({ where: { id: fileId } });
+
+    if (!file || file.type !== node_type.FILE || file.isTrashed) {
+      logger.warn(`Download URL generation failed. File ${fileId} not found`);
+      throw new Error("File not found");
+    }
+
+    if (file.userId !== userId) {
+      logger.warn(`Unauthorized download attempt by user ${userId}`);
+      throw new Error("Unauthorized");
+    }
+
+    const url = await storageService.getDownloadSignedURL(
+      file.key as string,
+      file.name,
+    );
+
+    // Record this file in the user's recent set. Failure here must not break
+    // the download, so the recent service swallows its own errors.
     try {
       await recentService.addRecentFile(userId, fileId);
     } catch (err: any) {

@@ -6,7 +6,7 @@ import { logger } from "../utils/logger";
 
 export const generateUploadURL = async (req: Request, res: Response) => {
   try {
-    const userId = req.userId as string;
+    const userId = (req as any).userId as string;
     const { fileName, mimeType, size, parentId } = req.body;
 
     logger.info("Generate upload URL request", {
@@ -32,7 +32,7 @@ export const generateUploadURL = async (req: Request, res: Response) => {
     sendResponse(res, HttpStatus.CREATED, "URL Generated Successfully", result);
   } catch (error: any) {
     logger.error("Failed to generate upload URL", {
-      userId: req.userId as string,
+      userId: (req as any).userId as string,
       error: error.message,
     });
 
@@ -199,7 +199,7 @@ export const renameFile = async (req: any, res: Response) => {
     sendResponse(res, HttpStatus.CREATED, "File Rename Successfully", file);
   } catch (error: any) {
     logger.warn("File rename failed", {
-      userId: req.userId,
+      userId: (req as any).userId,
       fileId: req.params?.fileId,
       error: error.message,
     });
@@ -225,7 +225,7 @@ export const deleteFile = async (req: any, res: Response) => {
     sendResponse(res, HttpStatus.CREATED, "File Deleted Successfully");
   } catch (error: any) {
     logger.warn("File deletion failed", {
-      userId: req.userId,
+      userId: (req as any).userId,
       fileId: req.params?.fileId,
       error: error.message,
     });
@@ -244,7 +244,7 @@ export const getFilePreviewURL = async (req: Request, res: Response) => {
           fileId,
         });
 
-        const url = await fileService.getPreviewSignedURL(fileId, userId);
+        const url = await fileService.getPreviewSignedURL(fileId as string, userId);
         logger.info("Preview URL generated successfully", {
           userId,
           fileId,
@@ -254,12 +254,41 @@ export const getFilePreviewURL = async (req: Request, res: Response) => {
     } catch (error) {
 
       logger.warn("Failed to generate preview URL", {
-        userId: req.userId,
+        userId: (req as any).userId,
         fileId: req.params?.fileId,
         error: (error as any).message,
       });
       
       sendResponse(res, HttpStatus.BAD_REQUEST, (error as any).message);      
+    }
+};
+
+export const getFileDownloadURL = async (req: Request, res: Response) => {
+    try {
+       const userId = (req as any).userId as string;
+       const { fileId } = req.params;
+
+        logger.info("Get file download URL request", {
+          userId,
+          fileId,
+        });
+
+        const url = await fileService.getDownloadSignedURL(fileId as string, userId);
+        logger.info("Download URL generated successfully", {
+          userId,
+          fileId,
+        });
+        sendResponse(res, HttpStatus.OK, "Download URL Generated", { url });
+
+    } catch (error) {
+
+      logger.warn("Failed to generate download URL", {
+        userId: (req as any).userId,
+        fileId: req.params?.fileId,
+        error: (error as any).message,
+      });
+
+      sendResponse(res, HttpStatus.BAD_REQUEST, (error as any).message);
     }
 };
 

@@ -70,7 +70,7 @@ export default function FileTable({
   const [busyPreviewId, setBusyPreviewId] = useState<string | null>(null);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+    <div className="overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
       <div className="hidden grid-cols-[1fr_120px_180px_40px_40px] items-center gap-4 border-b border-slate-200 bg-slate-50/70 px-5 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 md:grid">
         <span>Name</span>
         <span>Size</span>

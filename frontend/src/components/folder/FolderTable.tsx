@@ -22,7 +22,7 @@ const formatDate = (iso: string) =>
  */
 export default function FolderTable({ folders, onOpen, onRename, onDelete, onToggleStar }: Props) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+    <div className="overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
       {/* Header row (desktop only) */}
       <div className="hidden grid-cols-[1fr_180px_180px_40px_40px] items-center gap-4 border-b border-slate-200 bg-slate-50/70 px-5 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 md:grid">
         <span>Name</span>
@@ -77,7 +77,7 @@ export default function FolderTable({ folders, onOpen, onRename, onDelete, onTog
                   "rounded-full p-1.5 transition",
                   f.isStarred
                     ? "text-amber-500 hover:bg-amber-50"
-                    : "text-slate-400 hover:bg-slate-100 hover:text-amber-500",
+                    : "text-slate- hover:bg-slate-100 hover:text-amber-500",
                   onToggleStar ? "" : "cursor-not-allowed opacity-60",
                 ].join(" ")}
               >

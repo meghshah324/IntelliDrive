@@ -8,7 +8,7 @@ import StarredContent from "../components/starred/StarredContent";
 import TrashContent from "../components/trash/TrashContent";
 import UploadDrawer from "../components/upload/UploadDrawer";
 import { FolderProvider } from "../context/FolderContext";
-import { UploadProvider } from "../context/UploadContext";
+import { UploadProvider } from "../context/upload";
 
 type SidebarItem = "home" | "recents" | "starred" | "trash";
 
