@@ -1,7 +1,7 @@
 import { prisma } from "../../prisma";
 import { node_type } from "../../../generated/prisma";
 import { logger } from "../../utils/logger";
-import { TRASH_CLEANUP_QUEUE_NAME , trashCleanupQueue} from "../trashCleanup.queue";
+import { trashCleanupQueue} from "../trashCleanup.queue";
 import { TRASH_RETENTION_DAYS } from "../../constants/trashConstant";
 
 export class FolderService {
@@ -107,20 +107,16 @@ export class FolderService {
   }
 
   async collectDescendantIds(rootId: string): Promise<string[]> {
-    const result: string[] = [];
-    let frontier: string[] = [rootId];
-
-    while (frontier.length) {
-      const children = await prisma.node.findMany({
-        where: { parentId: { in: frontier } },
-        select: { id: true },
-      });
-      const ids = children.map((c) => c.id);
-      result.push(...ids);
-      frontier = ids;
-    }
-
-    return result;
+    const rows = await prisma.$queryRaw<{ id: string }[]>`
+      WITH RECURSIVE descendants AS (
+        SELECT id FROM \`node\` WHERE \`parentId\` = ${rootId}
+        UNION ALL
+        SELECT n.id FROM \`node\` n
+        INNER JOIN descendants d ON n.\`parentId\` = d.id
+      )
+      SELECT id FROM descendants
+    `;
+    return rows.map((r) => r.id);
   }
 }
 

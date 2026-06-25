@@ -301,7 +301,17 @@ export class FileService {
     // Record this file in the user's recent set. Failure here must not break
     // preview/download, so the recent service swallows its own errors.
     try {
-      await recentService.addRecentFile(userId, fileId);
+      await recentService.addRecentFile(userId, {
+        id:        file.id,
+        name:      file.name,
+        key:       file.key as string,
+        mimeType:  file.mimeType,
+        size:      file.size,
+        type:      file.type,
+        userId:    file.userId,
+        createdAt: file.createdAt,
+        updatedAt: file.updatedAt,
+      });
     } catch (err: any) {
       logger.warn("Failed to record recent file", {
         userId,
@@ -336,7 +346,17 @@ export class FileService {
     // Record this file in the user's recent set. Failure here must not break
     // the download, so the recent service swallows its own errors.
     try {
-      await recentService.addRecentFile(userId, fileId);
+      await recentService.addRecentFile(userId, {
+        id:        file.id,
+        name:      file.name,
+        key:       file.key as string,
+        mimeType:  file.mimeType,
+        size:      file.size,
+        type:      file.type,
+        userId:    file.userId,
+        createdAt: file.createdAt,
+        updatedAt: file.updatedAt,
+      });
     } catch (err: any) {
       logger.warn("Failed to record recent file", {
         userId,

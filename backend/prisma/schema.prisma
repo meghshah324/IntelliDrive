@@ -8,7 +8,7 @@ datasource db {
 }
 
 model node {
-  id         String    @id
+  id         String    @id @default(uuid())
   name       String
   type       node_type
   key        String?   @unique(map: "Node_key_key")
@@ -19,19 +19,22 @@ model node {
   isTrashed  Boolean   @default(false)
   trashedAt  DateTime?
   createdAt  DateTime  @default(now())
-  updatedAt  DateTime
+  updatedAt  DateTime  @updatedAt
   node       node?     @relation("nodeTonode", fields: [parentId], references: [id], onDelete: Cascade, map: "Node_parentId_fkey")
   other_node node[]    @relation("nodeTonode")
-  user       user      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Node_userId_fkey")
-  star       star[]
+  user        user          @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Node_userId_fkey")
+  star        star[]
+  recent_file recent_file[]
 
   @@index([parentId], map: "Node_parentId_idx")
   @@index([userId], map: "Node_userId_idx")
   @@index([isTrashed], map: "Node_isTrashed_idx")
 }
 
+
+
 model star {
-  id        String   @id
+  id        String   @id @default(uuid())
   userId    String
   nodeId    String
   createdAt DateTime @default(now())
@@ -43,17 +46,35 @@ model star {
   @@index([userId], map: "Star_userId_idx")
 }
 
+model recent_file {
+  id         String   @id @default(uuid())
+  userId     String
+  nodeId     String
+  name       String
+  key        String
+  mimeType   String?
+  size       Int?
+  accessedAt DateTime @default(now())
+  node       node     @relation(fields: [nodeId], references: [id], onDelete: Cascade, map: "RecentFile_nodeId_fkey")
+  user       user     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "RecentFile_userId_fkey")
+
+  @@unique([userId, nodeId], map: "RecentFile_userId_nodeId_key")
+  @@index([userId, accessedAt(sort: Desc)], map: "RecentFile_userId_accessedAt_idx")
+  @@index([nodeId], map: "RecentFile_nodeId_idx")
+}
+
 model user {
-  id           String   @id
+  id           String        @id @default(uuid())
   name         String
-  email        String   @unique(map: "User_email_key")
+  email        String        @unique(map: "User_email_key")
   storageLimit Int
-  usedStorage  Int      @default(0)
+  usedStorage  Int           @default(0)
   passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   node         node[]
   star         star[]
+  recent_file  recent_file[]
 }
 
 enum node_type {

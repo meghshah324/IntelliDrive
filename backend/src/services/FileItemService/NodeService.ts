@@ -60,7 +60,17 @@ export class NodeService {
       }
 
       try {
-        await recentService.addRecentFile(userId, nodeId);
+        await recentService.addRecentFile(userId, {
+          id:        node.id,
+          name:      node.name,
+          key:       node.key as string,
+          mimeType:  node.mimeType,
+          size:      node.size,
+          type:      node.type,
+          userId:    node.userId,
+          createdAt: node.createdAt,
+          updatedAt: node.updatedAt,
+        });
       } catch (err: any) {
         logger.warn("Failed to add recent file", {
           nodeId,

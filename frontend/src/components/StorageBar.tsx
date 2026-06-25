@@ -3,9 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useUploads } from "../context/upload";
 
 type StorageBarProps = {
-  /** Override the bytes used (otherwise read from the authenticated user). */
   usedBytes?: number;
-  /** Override the byte quota (otherwise read from the authenticated user). */
   totalBytes?: number;
 };
 
